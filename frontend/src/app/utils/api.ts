@@ -1,0 +1,45 @@
+// frontend/src/utils/api.ts
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+function getHeaders() {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    return {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+}
+
+export const api = {
+    async post(endpoint: string, body: any) {
+        const res = await fetch(`${BASE_URL}${endpoint}`, {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.detail || "Server operation failed");
+        }
+        return res.json();
+    },
+
+    async get(endpoint: string) {
+        const res = await fetch(`${BASE_URL}${endpoint}`, {
+            method: "GET",
+            headers: getHeaders(),
+        });
+        if (!res.ok) throw new Error("Failed to pull workspace metrics");
+        return res.json();
+    },
+
+    async put(endpoint: string, body: any) {
+        const res = await fetch(`${BASE_URL}${endpoint}`, {
+            method: "PUT",
+            headers: getHeaders(),
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error("Failed to commit live file changes");
+        return res.json();
+    }
+};
