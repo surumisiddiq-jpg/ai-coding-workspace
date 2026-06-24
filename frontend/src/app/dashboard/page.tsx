@@ -15,27 +15,26 @@ export default function Dashboard() {
     const [newProjectName, setNewProjectName] = useState('');
     const [activeTab, setActiveTab] = useState<'javascript' | 'python' | 'website'>('javascript');
     const [loading, setLoading] = useState(true);
-    const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-        if (!localStorage.getItem('token')) {
-            window.location.href = '/';
-            return;
-        }
-        fetchProjects();
-    }, []);
 
     const fetchProjects = async () => {
         try {
             const data = await api.get('/projects');
             setProjects(data);
-        } catch (err) {
-            console.error("Failed fetching project list maps", err);
+        } catch (_err) {
+            console.error("Failed fetching project list maps", _err);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!localStorage.getItem('token')) {
+            window.location.href = '/';
+            return;
+        }
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchProjects();
+    }, []);
 
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,7 +47,7 @@ export default function Dashboard() {
             });
             setNewProjectName('');
             fetchProjects(); // Refresh running containers list
-        } catch (err) {
+        } catch {
             alert("Could not initialize project environment instance.");
         }
     };
@@ -58,9 +57,7 @@ export default function Dashboard() {
         window.location.href = '/';
     };
 
-    if (!isMounted) {
-        return <div className="min-h-screen bg-slate-950" />;
-    }
+
 
     const cards = [
         { type: 'javascript', title: 'JavaScript Workspace', desc: 'Isolate scripts & logic operations', icon: Code2, color: 'border-yellow-500/30 text-yellow-400 bg-yellow-500/5' },

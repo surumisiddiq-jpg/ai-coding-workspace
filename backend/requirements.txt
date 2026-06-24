@@ -19,7 +19,7 @@ idna==3.18
 jiter==0.15.0
 mongomock==4.3.0
 motor==3.7.1
-openai==2.43.0
+groq
 packaging==26.2
 passlib==1.7.4
 pycparser==3.0

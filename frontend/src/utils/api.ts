@@ -2,14 +2,17 @@ const BASE_URL = "http://localhost:8000/api"; // Updated to the correct full end
 
 function getHeaders() {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+        throw new Error("Missing authorization token. Please sign in again.");
+    }
     return {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        Authorization: `Bearer ${token}`,
     };
 }
 
 export const api = {
-    async post(endpoint: string, body: any) {
+    async post(endpoint: string, body: unknown) {
         const res = await fetch(`${BASE_URL}${endpoint}`, {
             method: "POST",
             headers: getHeaders(),
@@ -31,7 +34,7 @@ export const api = {
         return res.json();
     },
 
-    async put(endpoint: string, body: any) {
+    async put(endpoint: string, body: unknown) {
         const res = await fetch(`${BASE_URL}${endpoint}`, {
             method: "PUT",
             headers: getHeaders(),

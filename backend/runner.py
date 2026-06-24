@@ -3,6 +3,25 @@ import subprocess
 import sys
 import tempfile
 import os
+import shutil
+
+
+def find_node_executable() -> str | None:
+    node_exec = shutil.which("node")
+    if node_exec:
+        return node_exec
+
+    if sys.platform == "win32":
+        possible_paths = [
+            r"C:\Program Files\nodejs\node.exe",
+            r"C:\Program Files (x86)\nodejs\node.exe",
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+
+    return None
+
 
 def execute_code(code: str, language: str) -> str:
     """
@@ -23,8 +42,13 @@ def execute_code(code: str, language: str) -> str:
         if language == "python":
             cmd = [sys.executable, temp_file_path]
         else:
-            # Assumes Node.js is available on the local host machine
-            cmd = ["node", temp_file_path]
+            node_exec = find_node_executable()
+            if not node_exec:
+                return (
+                    "Execution Error: 'node' runtime environment not found on the server host machine. "
+                    "Ensure Node.js is installed and available on PATH, or install it from https://nodejs.org/."
+                )
+            cmd = [node_exec, temp_file_path]
 
         # Execute the process with a strict 5-second maximum timeout limit
         result = subprocess.run(

@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useState, use } from 'react';
-import { api } from '../../../utils/api';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { api } from '../../utils/api';
 import Editor from '@monaco-editor/react';
 import { Play, FileCode, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import AiChat from '../../../components/AiChat';
@@ -17,21 +18,23 @@ interface ProjectRecord {
   workspace_type: 'javascript' | 'python' | 'website';
 }
 
-export default function Workspace({ params }: { params: Promise<{ id: string }> }) {
-  const { id: projectId } = use(params);
+export default function Workspace() {
+  const params = useParams();
+  const router = useRouter();
+  const projectId = params?.id as string;
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [activeFile, setActiveFile] = useState<FileRecord | null>(null);
   const [terminalOutput, setTerminalOutput] = useState('Terminal output will display here after execution...');
   const [runningCode, setRunningCode] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    fetchWorkspaceData();
-  }, [projectId]);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const fetchWorkspaceData = async () => {
+    if (!projectId) {
+      setErrorMessage('Invalid workspace route. Returning to dashboard.');
+      return;
+    }
+
     try {
       const data = await api.get(`/projects/${projectId}`);
       setProject(data.project);
@@ -39,10 +42,25 @@ export default function Workspace({ params }: { params: Promise<{ id: string }> 
       if (data.files.length > 0) {
         setActiveFile(data.files[0]);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error hydrating workspace panels', err);
+      const errorMsg = err instanceof Error ? err.message : 'Unable to load workspace data.';
+      setErrorMessage(errorMsg);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchWorkspaceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => router.replace('/dashboard'), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMessage, router]);
 
   const handleCodeChange = (value: string | undefined) => {
     if (!activeFile) return;
@@ -71,14 +89,31 @@ export default function Workspace({ params }: { params: Promise<{ id: string }> 
         language: project.workspace_type
       });
       setTerminalOutput(res.output);
-    } catch (err) {
+    } catch {
       setTerminalOutput('Execution failure connecting to sandbox backend routing.');
     } finally {
       setRunningCode(false);
     }
   };
 
-  if (!isMounted || !project || !activeFile) {
+  if (errorMessage) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300 p-6 text-center">
+        <div className="max-w-xl rounded-2xl border border-red-500/30 bg-red-950/40 p-8">
+          <h1 className="text-2xl font-bold text-red-300 mb-4">Workspace Load Error</h1>
+          <p className="text-sm text-slate-300 mb-6">{errorMessage}</p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!project || !activeFile) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 font-mono">
         <Loader2 className="animate-spin text-blue-500 mr-2" /> Initializing Isolated Dev Environment...
@@ -100,11 +135,19 @@ export default function Workspace({ params }: { params: Promise<{ id: string }> 
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={saveCurrentFile} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg transition-colors border border-slate-700">
+          <button
+            onClick={saveCurrentFile}
+            disabled={runningCode || !activeFile}
+            className={`flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg transition-colors border border-slate-700 ${runningCode || !activeFile ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
             <Save size={14} /> Save File
           </button>
           {project.workspace_type !== 'website' && (
-            <button onClick={executeCodeSubsystem} disabled={runningCode} className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-xs font-semibold rounded-lg transition-colors shadow-lg shadow-green-600/10">
+            <button
+              onClick={executeCodeSubsystem}
+              disabled={runningCode || !activeFile}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-xs font-semibold rounded-lg transition-colors shadow-lg shadow-green-600/10"
+            >
               <Play size={14} /> {runningCode ? 'Executing...' : 'Run Code'}
             </button>
           )}
@@ -170,6 +213,7 @@ export default function Workspace({ params }: { params: Promise<{ id: string }> 
           activeFile={activeFile}
           projectId={projectId}
           onCodeUpdate={(updatedContent: string) => handleCodeChange(updatedContent)}
+          disabled={runningCode}
         />
       </div>
     </div>

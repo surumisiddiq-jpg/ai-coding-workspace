@@ -8,32 +8,35 @@ interface ChatLogItem {
 }
 
 interface AiChatProps {
-    api: any;
+    api: { post: (endpoint: string, body: unknown) => Promise<{ message: string; suggested_code?: string }|unknown>; get: (endpoint: string) => Promise<unknown> };
     activeFile: { name: string; content: string };
     projectId: string;
     onCodeUpdate: (updatedContent: string) => void;
+    disabled?: boolean;
 }
 
-export default function AiChat({ api, activeFile, projectId, onCodeUpdate }: AiChatProps) {
+export default function AiChat({ api, activeFile, projectId, onCodeUpdate, disabled = false }: AiChatProps) {
     const [aiMessage, setAiMessage] = useState('');
     const [aiChatLog, setAiChatLog] = useState<ChatLogItem[]>([]);
     const [aiLoading, setAiLoading] = useState(false);
 
-    // --- REQUIREMENT #4: PERSISTENT CHAT HISTORY FETCH ---
-    useEffect(() => {
-        if (projectId) {
-            loadProjectChatHistory();
-        }
-    }, [projectId]);
-
     const loadProjectChatHistory = async () => {
         try {
             const history = await api.get(`/projects/${projectId}/chat`);
-            setAiChatLog(history);
+            setAiChatLog(history as ChatLogItem[]);
         } catch (err) {
             console.error('Failed to restore project chat timelines from MongoDB', err);
         }
     };
+
+    // --- REQUIREMENT #4: PERSISTENT CHAT HISTORY FETCH ---
+    useEffect(() => {
+        if (projectId) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            loadProjectChatHistory();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
 
     const sendAiChatMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -63,12 +66,13 @@ export default function AiChat({ api, activeFile, projectId, onCodeUpdate }: AiC
 
             setAiChatLog(prev => [...prev, { role: 'assistant', content: res.message }]);
 
-            // --- BONUS CRITERIA: AI FILE CONTENT UPDATE SYSTEM ---
             if (res.suggested_code) {
                 onCodeUpdate(res.suggested_code);
             }
-        } catch (err) {
-            setAiChatLog(prev => [...prev, { role: 'assistant', content: 'Error connecting to the AI context module.' }]);
+        } catch (err: unknown) {
+            console.error('AI context request failed:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Error connecting to the AI context module.';
+            setAiChatLog(prev => [...prev, { role: 'assistant', content: errorMessage }]);
         } finally {
             setAiLoading(false);
         }
@@ -106,11 +110,11 @@ export default function AiChat({ api, activeFile, projectId, onCodeUpdate }: AiC
             <form onSubmit={sendAiChatMessage} className="p-3 border-t border-slate-800 bg-slate-950 flex-shrink-0">
                 <input
                     type="text"
-                    className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="Ask AI helper..."
+                    className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    placeholder={disabled ? 'AI chat disabled while code is executing...' : 'Ask AI helper...'}
                     value={aiMessage}
                     onChange={(e) => setAiMessage(e.target.value)}
-                    disabled={aiLoading}
+                    disabled={aiLoading || disabled}
                 />
             </form>
         </aside>

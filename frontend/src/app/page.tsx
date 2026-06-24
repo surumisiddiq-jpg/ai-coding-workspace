@@ -1,16 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export default function Home() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,12 +44,10 @@ export default function Home() {
 
       // Redirect to dashboard upon successful token acquisition
       window.location.href = '/dashboard';
-    } catch (err: any) {
-      setError(err.message || 'An authentication error occurred.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An authentication error occurred.');
     }
   };
-
-  if (!isMounted) return <div className="min-h-screen bg-slate-950" />;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 p-4 text-white">
